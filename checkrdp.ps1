@@ -1,5 +1,5 @@
 $cred = Get-Credential
-$hosts = Get-Content -Path "C:\hosts.txt"
+$hosts = Get-Content -Path "C:\Users\Rootsec\Desktop\hosts.txt"
 
 foreach ($host in $hosts) {
     $error.Clear()
