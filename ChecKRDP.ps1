@@ -1,28 +1,21 @@
-# Define the path to the hosts file
-$hostsFilePath = Join-Path $PSScriptRoot "hosts.txt"
+$computers = Get-Content -Path ".\hosts.txt"
 
-# Get the current user's name
-$userName = $env:USERNAME
-
-# Read the hosts file into an array
-$hosts = Get-Content $hostsFilePath
-
-# Loop through each host and test RDP connection
-foreach ($computerName in $hosts) {
+foreach ($computername in $computers) {
+    Write-Host "Testing connection to $computername..."
     try {
-        $result = Test-NetConnection -ComputerName $computerName -Port 3389
-        if ($result.TcpTestSucceeded) {
-            # Check if the current user has Remote Desktop access to the computer
-            $acl = (Get-Acl "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").AccessToString
-            if ($acl -match "$userName\s+Allow\s+FullControl") {
-                Write-Host "You have Remote Desktop access to $computerName"
+        $test = Test-NetConnection -ComputerName $computername -CommonTCPPort RDP
+        if ($test.TcpTestSucceeded) {
+            Write-Host "$computername is reachable."
+            $acl = (Get-Acl "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system").AccessToString
+            if ($acl -match "RemoteInteractive") {
+                Write-Host "You have RDP access to $computername."
             } else {
-                Write-Host "You do not have Remote Desktop access to $computerName"
+                Write-Host "You do not have RDP access to $computername."
             }
         } else {
-            Write-Host "Could not establish a connection to $computerName"
+            Write-Host "$computername is unreachable."
         }
     } catch {
-        Write-Host "Error testing connection to $computerName: $_"
+        Write-Host "Error testing connection to $computername: $_"
     }
 }
