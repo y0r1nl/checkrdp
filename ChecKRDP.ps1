@@ -1,18 +1,28 @@
-$Hosts = Get-Content .\hosts.txt
-$UserName = $env:USERNAME
+# Define the path to the hosts file
+$hostsFilePath = Join-Path $PSScriptRoot "hosts.txt"
 
-foreach ($Host in $Hosts) {
-    $RDP = Get-WmiObject -Class "Win32_TSGeneralSetting" -Namespace root\cimv2\terminalservices -ComputerName $Host | Where-Object {$_.TerminalName -eq "RDP-Tcp"}
-    $SecurityDescriptor = $RDP.GetSecurityDescriptor().Descriptor
-    $DA = New-Object System.Security.AccessControl.DirectorySecurity
-    $DA.SetSecurityDescriptorSddlForm($SecurityDescriptor)
-    $AccessRules = $DA.GetAccessRules($true, $false, [System.Security.Principal.NTAccount])
-    $RDPAccess = $AccessRules | Where-Object { $_.IdentityReference.Value -eq "NT Authority\Remote Desktop Users" -and $_.AccessControlType -eq "Allow" }
+# Get the current user's name
+$userName = $env:USERNAME
 
-    if ($RDPAccess) {
-        Write-Host "You have Remote Desktop access to $Host"
-    }
-    else {
-        Write-Host "You do not have Remote Desktop access to $Host"
+# Read the hosts file into an array
+$hosts = Get-Content $hostsFilePath
+
+# Loop through each host and test RDP connection
+foreach ($computerName in $hosts) {
+    try {
+        $result = Test-NetConnection -ComputerName $computerName -Port 3389
+        if ($result.TcpTestSucceeded) {
+            # Check if the current user has Remote Desktop access to the computer
+            $acl = (Get-Acl "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").AccessToString
+            if ($acl -match "$userName\s+Allow\s+FullControl") {
+                Write-Host "You have Remote Desktop access to $computerName"
+            } else {
+                Write-Host "You do not have Remote Desktop access to $computerName"
+            }
+        } else {
+            Write-Host "Could not establish a connection to $computerName"
+        }
+    } catch {
+        Write-Host "Error testing connection to $computerName: $_"
     }
 }
