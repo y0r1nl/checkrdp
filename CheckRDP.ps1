@@ -1,20 +1,13 @@
-$cred = Get-Credential
-$hosts = Get-Content -Path "C:\Users\Rootsec\Desktop\hosts.txt"
+$computers = Get-Content -Path ".\hosts.txt"
 
-foreach ($host in $hosts) {
-    $error.Clear()
-    $connection = New-Object -ComObject "MsRdp.RdpClient"
-    $connection.Server = $host
-    $connection.AdvancedSettings2.ClearTextPassword = $cred.GetNetworkCredential().Password
-    $connection.UserName = $cred.GetNetworkCredential().UserName
+foreach ($computer in $computers) {
+    $acl = Get-Acl "WinRM:\$computer\root"
+    $access = $acl.Access | Where-Object { $_.IdentityReference -eq $env:USERNAME -and $_.FileSystemRights -eq 'ReadAndExecute' }
 
-    $connection.Connect()
-
-    if ($connection.Connected) {
-        Write-Host "You can log in to $host with your current credentials."
-        $connection.Disconnect()
-    }
-    else {
-        Write-Host "Failed to connect to $host. Error: $($error[0].Exception.Message)"
+    if ($access -ne $null) {
+        Write-Output "$computer: Access granted"
+        mstsc /v:$computer
+    } else {
+        Write-Output "$computer: Access denied"
     }
 }
