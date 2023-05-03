@@ -1,13 +1,18 @@
-$computers = Get-Content -Path ".\hosts.txt"
+$Hosts = Get-Content .\hosts.txt
+$UserName = $env:USERNAME
 
-foreach ($computer in $computers) {
-    $acl = Get-Acl "WinRM:\$computer\root"
-    $access = $acl.Access | Where-Object { $_.IdentityReference -eq $env:USERNAME -and $_.FileSystemRights -eq 'ReadAndExecute' }
+foreach ($Host in $Hosts) {
+    $RDP = Get-WmiObject -Class "Win32_TSGeneralSetting" -Namespace root\cimv2\terminalservices -ComputerName $Host | Where-Object {$_.TerminalName -eq "RDP-Tcp"}
+    $SecurityDescriptor = $RDP.GetSecurityDescriptor().Descriptor
+    $DA = New-Object System.Security.AccessControl.DirectorySecurity
+    $DA.SetSecurityDescriptorSddlForm($SecurityDescriptor)
+    $AccessRules = $DA.GetAccessRules($true, $false, [System.Security.Principal.NTAccount])
+    $RDPAccess = $AccessRules | Where-Object { $_.IdentityReference.Value -eq "NT Authority\Remote Desktop Users" -and $_.AccessControlType -eq "Allow" }
 
-    if ($access -ne $null) {
-        Write-Output "$computer: Access granted"
-        mstsc /v:$computer
-    } else {
-        Write-Output "$computer: Access denied"
+    if ($RDPAccess) {
+        Write-Host "You have Remote Desktop access to $Host"
+    }
+    else {
+        Write-Host "You do not have Remote Desktop access to $Host"
     }
 }
